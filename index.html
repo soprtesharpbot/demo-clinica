@@ -36,7 +36,7 @@
   .chat-avatar { width: 38px; height: 38px; border-radius: 50%; background: #128C7E; display: flex; align-items: center; justify-content: center; color: white; font-size: 17px; flex-shrink: 0; }
   .chat-info { color: white; flex: 1; }
   .chat-name { font-size: 15px; font-weight: 500; }
-  .chat-status { font-size: 11px; opacity: 0.85; display: flex; align-items: center; gap: 4px; }
+  .chat-status { font-size: 11px; opacity: 0.85; display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
   .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ADE80; display: inline-block; }
   .status-dot.off { background: #F59E0B; }
 
@@ -88,6 +88,15 @@
 
   .page-footer { text-align: center; font-size: 12px; color: rgba(255,255,255,.7); margin-top: 22px; line-height: 1.6; }
   .page-footer strong { color: #fff; }
+
+  .cta-card { background: linear-gradient(135deg, #128C7E, #075E54); border-radius: var(--border-radius-lg, 16px); padding: 1.25rem 1.25rem 1.4rem; margin-top: 0.75rem; max-width: 400px; margin-left: auto; margin-right: auto; text-align: center; opacity: 0; transform: translateY(6px); transition: opacity .35s ease, transform .35s ease; }
+  .cta-card.visible { opacity: 1; transform: translateY(0); }
+  .cta-title { color: #fff; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .cta-sub { color: rgba(255,255,255,.85); font-size: 12.5px; line-height: 1.5; margin-bottom: 14px; }
+  .cta-buttons { display: flex; flex-direction: column; gap: 8px; }
+  .cta-btn { display: block; text-decoration: none; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; font-weight: 600; }
+  .cta-btn-primary { background: #fff; color: #075E54; }
+  .cta-btn-secondary { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.4); }
 </style>
 </head>
 <body>
@@ -105,7 +114,7 @@
         <div class="chat-avatar">🏥</div>
         <div class="chat-info">
           <div class="chat-name">Clínica Estética BCN</div>
-          <div class="chat-status" id="chat-status"><span class="status-dot" id="status-dot"></span><span id="status-text">en línea</span></div>
+          <div class="chat-status" id="chat-status" onclick="toggleBusinessStatus()" title="Toca para alternar entre en línea / fuera de horario"><span class="status-dot" id="status-dot"></span><span id="status-text">en línea</span></div>
         </div>
       </div>
       <div class="chat-messages" id="msgs"></div>
@@ -122,7 +131,7 @@
     <button class="reset-btn" onclick="resetChat()">🔄 Reiniciar demo</button>
 
     <div class="automation-card hidden" id="automation-card">
-      <div class="automation-title">🔔 Entre bastidores, en tiempo real</div>
+      <div class="automation-title">🔔 Lo que montaría para tu clínica · simulación</div>
       <div id="automation-rows"></div>
     </div>
 
@@ -130,11 +139,20 @@
       <div class="lead-card-title">Lead capturado</div>
       <div id="lead-rows"></div>
     </div>
+
+    <div class="cta-card hidden" id="cta-card">
+      <div class="cta-title">¿Quieres esto para tu clínica?</div>
+      <div class="cta-sub">Monto este sistema completo — captura, registro y aviso automático — adaptado a tu clínica en 1-2 semanas.</div>
+      <div class="cta-buttons">
+        <a class="cta-btn cta-btn-primary" href="https://wa.me/34638966263?text=Hola%2C%20he%20probado%20la%20demo%20y%20quiero%20m%C3%A1s%20info" target="_blank" rel="noopener">💬 Escríbeme por WhatsApp</a>
+        <a class="cta-btn cta-btn-secondary" href="mailto:soporte.sharpbot@gmail.com?subject=Quiero%20la%20automatizaci%C3%B3n%20de%20WhatsApp">✉️ soporte.sharpbot@gmail.com</a>
+      </div>
+    </div>
   </div>
 
   <div class="page-footer">
     Esto es una <strong>demo</strong>: los mensajes y horarios se simulan en tu navegador.<br>
-    En producción, cada paso queda registrado y tu equipo recibe el aviso al instante.
+    Al instalarlo en tu clínica, cada paso queda registrado y tu equipo recibe el aviso al instante.
   </div>
 </div>
 
@@ -152,19 +170,29 @@ let state = {
   path: "normal" // "normal" | "equipo"
 };
 
-const PRICES_MSG = "Aquí tienes una idea de precios orientativos:\n💉 Botox / Rellenos — desde 180€\n✨ Depilación láser — desde 49€ por zona\n🧖 Facial premium — desde 60€\n🔥 Corporal reductivo — desde 70€/sesión";
+const PRICES_MSG = "Ejemplo de precios orientativos (cada clínica configura los suyos):\n💉 Botox / Rellenos — desde 180€\n✨ Depilación láser — desde 49€ por zona\n🧖 Facial premium — desde 60€\n🔥 Corporal reductivo — desde 70€/sesión";
 const TREATMENTS_MSG = "Trabajamos con depilación láser diodo, botox y ácido hialurónico, faciales de alta gama y tratamientos corporales reductivos. Todos con valoración previa gratuita.";
 
 /* ---------------------------------------------------------
-   Horario simulado (usa la hora del dispositivo, solo demo)
+   Horario simulado — FIJO en "fuera de horario" a propósito.
+   Este es el argumento de venta más fuerte de la demo (el bot
+   sigue atendiendo cuando la clínica está cerrada), así que no
+   depende de la hora real del dispositivo ni del navegador.
+   Se puede alternar a mano con el botón "Simular horario" si
+   quieres enseñar también el estado "en línea".
 --------------------------------------------------------- */
+let businessOpen = false;
+
 function setBusinessStatus() {
-  const h = new Date().getHours();
   const dot = document.getElementById("status-dot");
   const txt = document.getElementById("status-text");
-  const open = h >= 9 && h < 20;
-  dot.classList.toggle("off", !open);
-  txt.textContent = open ? "en línea" : "fuera de horario · te contestamos en breve";
+  dot.classList.toggle("off", !businessOpen);
+  txt.textContent = businessOpen ? "en línea" : "fuera de horario · 22:47";
+}
+
+function toggleBusinessStatus() {
+  businessOpen = !businessOpen;
+  setBusinessStatus();
 }
 
 /* ---------------------------------------------------------
@@ -278,7 +306,7 @@ async function startChat() {
     "¿En qué puedo ayudarte hoy?"
   ]);
   setOpts(
-    ["Reservar una cita", "Quiero saber precios", "Información de tratamientos", "Hablar con el equipo"],
+    ["Solicitar una cita", "Quiero saber precios", "Información de tratamientos", "Hablar con el equipo"],
     handleWelcomeOption
   );
   updateStepInfo("Menú principal");
@@ -298,19 +326,19 @@ async function handleWelcomeOption(opt) {
 
   if (opt === "Quiero saber precios") {
     await botSay(PRICES_MSG);
-    await botSay("¿Quieres reservar una valoración gratuita para confirmar el precio exacto en tu caso?");
-    setOpts(["Sí, reservar valoración", "Ver tratamientos primero"], handlePostInfoOption);
+    await botSay("¿Quieres pedir una valoración gratuita para confirmar el precio exacto en tu caso?");
+    setOpts(["Sí, pedir valoración", "Ver tratamientos primero"], handlePostInfoOption);
     return;
   }
 
   if (opt === "Información de tratamientos") {
     await botSay(TREATMENTS_MSG);
-    await botSay("¿Quieres reservar una valoración gratuita?");
-    setOpts(["Sí, reservar valoración", "Ver precios primero"], handlePostInfoOption);
+    await botSay("¿Quieres pedir una valoración gratuita?");
+    setOpts(["Sí, pedir valoración", "Ver precios primero"], handlePostInfoOption);
     return;
   }
 
-  // "Reservar una cita" -> directo al flujo normal
+  // "Solicitar una cita" -> directo al flujo normal
   goToTratamiento();
 }
 
@@ -318,12 +346,12 @@ async function handlePostInfoOption(opt) {
   addMsg(opt, "user");
   if (opt === "Ver tratamientos primero") {
     await botSay(TREATMENTS_MSG);
-    setOpts(["Sí, reservar valoración"], handlePostInfoOption);
+    setOpts(["Sí, pedir valoración"], handlePostInfoOption);
     return;
   }
   if (opt === "Ver precios primero") {
     await botSay(PRICES_MSG);
-    setOpts(["Sí, reservar valoración"], handlePostInfoOption);
+    setOpts(["Sí, pedir valoración"], handlePostInfoOption);
     return;
   }
   goToTratamiento();
@@ -379,8 +407,8 @@ async function handleCitaDia(opt) {
   state.dia = opt;
   state.step = "confirmacion";
   setOpts(null);
-  await botSay("Reservado ✅. Te confirmamos la cita el " + opt + ".");
-  await botSay("Nuestro equipo se pondrá en contacto contigo si necesita concretar algún detalle. ¡Hasta pronto, " + state.nombre + "!");
+  await botSay("Solicitud recibida ✅. Has pedido cita para el " + opt + ": el equipo te confirmará el día y la hora exactos.");
+  await botSay("Te escribiremos por WhatsApp para confirmarla. ¡Hasta pronto, " + state.nombre + "!");
   clearInput();
   updateStepInfo("Completado");
   runAutomationSequence();
@@ -435,7 +463,7 @@ async function handleSend() {
     clearInput();
     state.telefono = val;
     state.step = "cita";
-    await botSay("Tenemos disponibilidad esta semana. ¿Qué día te viene mejor?");
+    await botSay("¿Qué día te vendría mejor para la valoración?");
     setOpts(["Lunes tarde", "Miércoles tarde", "Viernes tarde"], handleCitaDia);
     updateStepInfo("Día de la cita");
     return;
@@ -462,9 +490,9 @@ async function runAutomationSequence() {
   requestAnimationFrame(() => card.classList.add("visible"));
 
   const items = [
-    "Lead guardado en tu hoja de cálculo",
-    "Email enviado al equipo con los datos",
-    "Aviso de WhatsApp enviado al equipo"
+    "Lead guardado en una hoja de cálculo",
+    "Email al equipo con los datos del lead",
+    "Aviso por WhatsApp al equipo"
   ];
   rowsWrap.innerHTML = items.map((t, i) =>
     `<div class="automation-row" id="arow-${i}"><span class="automation-check">✓</span><span>${t}</span></div>`
@@ -477,6 +505,15 @@ async function runAutomationSequence() {
 
   await new Promise(r => setTimeout(r, 300));
   showLeadCard();
+
+  await new Promise(r => setTimeout(r, 500));
+  showCtaCard();
+}
+
+function showCtaCard() {
+  const card = document.getElementById("cta-card");
+  card.classList.remove("hidden");
+  requestAnimationFrame(() => card.classList.add("visible"));
 }
 
 function showLeadCard() {
@@ -488,7 +525,7 @@ function showLeadCard() {
     ["Teléfono", state.telefono],
     ["Tratamiento", state.tratamiento],
     ["Primera vez", state.primeraVez || "—"],
-    ["Día / seguimiento", state.dia],
+    ["Día preferido", state.dia],
     ["Estado", "Nuevo lead"]
   ];
   rows.innerHTML = data.map(([l, v]) =>
@@ -506,6 +543,8 @@ function resetChat() {
   document.getElementById("automation-card").classList.add("hidden");
   document.getElementById("automation-card").classList.remove("visible");
   document.getElementById("lead-card").classList.add("hidden");
+  document.getElementById("cta-card").classList.add("hidden");
+  document.getElementById("cta-card").classList.remove("visible");
   hideConsentNote();
   hideError();
   clearInput();
